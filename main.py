@@ -1,16 +1,30 @@
 from flask import Flask
 from flask_restful import Resource, Api
 from flask_restful.reqparse import RequestParser
+from flask_httpauth import HTTPBasicAuth
+
 
 #app init
 app = Flask(__name__)
 #api init
 api = Api(app, prefix="/api/v1")
+auth = HTTPBasicAuth()
+
 
 #subscribe user list of dict
 users = [
     {'email': 'hello@hrshadhin.me', 'name': 'Shadhin', 'id': 1}
 ]
+
+USER_DATA = {
+    "admin": "password"
+}
+
+@auth.verify_password
+def verify(username, password):
+    if not (username and password):
+        return False
+    return USER_DATA.get(username) == password
 
 #healper function to get user from list
 def get_user_by_id(user_id):
@@ -28,10 +42,11 @@ subscriber_request_parser.add_argument("id", type=int, required=True, help="Plea
 
 #subscriber collection
 class SubscriberCollection(Resource):
-
+    @auth.login_required
     def get(self):
         return users, 200
 
+    @auth.login_required
     def post(self):
         args = subscriber_request_parser.parse_args()
         users.append(args)
@@ -40,12 +55,14 @@ class SubscriberCollection(Resource):
 #single subscriber
 class Subscriber(Resource):
 
+    @auth.login_required
     def get(self, id):
         user = get_user_by_id(id)
         if not user:
             return {'error': 'User not found!'}, 404
         return user, 302
 
+    @auth.login_required
     def put(self, id):
         args = subscriber_request_parser.parse_args()
         user = get_user_by_id(id)
@@ -54,6 +71,7 @@ class Subscriber(Resource):
             users.append(args)
         return args, 202
 
+    @auth.login_required
     def delete(self, id):
         user = get_user_by_id(id)
         if user:
