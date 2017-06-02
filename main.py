@@ -1,38 +1,50 @@
 from flask import Flask
 from flask_restful import Resource, Api
 from flask_restful.reqparse import RequestParser
-from flask_httpauth import HTTPBasicAuth
-
+from flask_jwt import JWT, jwt_required
 
 #app init
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'my-super-secret-key-here'
 #api init
 api = Api(app, prefix="/api/v1")
-auth = HTTPBasicAuth()
 
-
-#subscribe user list of dict
-users = [
+#subscribe subscriber list of dict
+subscribers = [
     {'email': 'hello@hrshadhin.me', 'name': 'Shadhin', 'id': 1}
 ]
-
+#user authentication functions
 USER_DATA = {
     "admin": "password"
 }
+class user(object):
+    def __init__(self, id):
+        self.id = id
 
-@auth.verify_password
+    def __str__(self):
+        return "user(id='%s')" % self.id
+
+
 def verify(username, password):
     if not (username and password):
         return False
-    return USER_DATA.get(username) == password
+    if USER_DATA.get(username) == password:
+        return user(id=123)
 
-#healper function to get user from list
-def get_user_by_id(user_id):
-    for x in users:
-        if x.get("id") == int(user_id):
+def identity(payload):
+    user_id = payload['identity']
+    return {"user_id": user_id}
+
+jwt = JWT(app,verify,identity)
+
+
+#healper function to get subscriber from list
+def get_subscriber_by_id(subscriber_id):
+    for x in subscribers:
+        if x.get("id") == int(subscriber_id):
             return x
 
-#validate user inputs for api
+#validate subscriber inputs for api
 subscriber_request_parser = RequestParser(bundle_errors=True)
 subscriber_request_parser.add_argument("name", type=str, required=True, help="Name has to be valid string")
 subscriber_request_parser.add_argument("email", required=True)
@@ -42,40 +54,37 @@ subscriber_request_parser.add_argument("id", type=int, required=True, help="Plea
 
 #subscriber collection
 class SubscriberCollection(Resource):
-    @auth.login_required
+    @jwt_required()
     def get(self):
-        return users, 200
+        return subscribers, 200
 
-    @auth.login_required
+    @jwt_required()
     def post(self):
         args = subscriber_request_parser.parse_args()
-        users.append(args)
+        subscribers.append(args)
         return {"msg": "Subscriber added", "subscriber_data": args}, 201
 
 #single subscriber
 class Subscriber(Resource):
-
-    @auth.login_required
+    @jwt_required()
     def get(self, id):
-        user = get_user_by_id(id)
-        if not user:
-            return {'error': 'User not found!'}, 404
-        return user, 302
-
-    @auth.login_required
+        subscriber = get_subscriber_by_id(id)
+        if not subscriber:
+            return {'error': 'subscriber not found!'}, 404
+        return subscriber, 302
+    @jwt_required()
     def put(self, id):
         args = subscriber_request_parser.parse_args()
-        user = get_user_by_id(id)
-        if user:
-            users.remove(user)
-            users.append(args)
+        subscriber = get_subscriber_by_id(id)
+        if subscriber:
+            subscribers.remove(subscriber)
+            subscribers.append(args)
         return args, 202
-
-    @auth.login_required
+    @jwt_required()
     def delete(self, id):
-        user = get_user_by_id(id)
-        if user:
-            users.remove(user)
+        subscriber = get_subscriber_by_id(id)
+        if subscriber:
+            subscribers.remove(subscriber)
 
         return None, 204
 
